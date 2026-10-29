@@ -16,7 +16,7 @@ export default function VoiceSettings({ options, error, settings, onChange }) {
           checked={settings.speakReplies}
           onChange={(e) => onChange({ speakReplies: e.target.checked })}
         />
-        Speak replies
+        Speak replies to voice questions
       </label>
 
       <label className="field">

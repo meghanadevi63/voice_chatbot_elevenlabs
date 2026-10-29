@@ -73,7 +73,7 @@ export default function App() {
   }, [messages, pending]);
 
   const ask = useCallback(
-    async (question) => {
+    async (question, { spoken = false } = {}) => {
       // A new question interrupts the answer being read aloud
       stop();
       const history = toHistory(messages);
@@ -83,7 +83,8 @@ export default function App() {
         const { answer, sources } = await sendChat(question, history, llmModel);
         const reply = { id: newId(), role: "assistant", content: answer, sources };
         setMessages((prev) => [...prev, reply]);
-        if (speakReplies) speakAnswer(reply);
+        // Typed questions stay silent; Listen still reads any answer on demand
+        if (speakReplies && spoken) speakAnswer(reply);
       } catch (e) {
         setMessages((prev) => [
           ...prev,

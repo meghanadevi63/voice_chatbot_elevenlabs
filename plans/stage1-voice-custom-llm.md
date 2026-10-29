@@ -21,7 +21,7 @@ Both modes write into the same chat thread; the user can switch modes mid-conver
 |---|---|---|
 | D1 | **PTT does not use an ElevenLabs Agent.** It is: Scribe v2 (speech→text) → existing `/chat` → ElevenLabs TTS. | An Agent answers automatically when the user stops talking; PTT needs "review, then Send". Also cheaper (no per-minute agent charge) and every model is selectable. |
 | D2 | **Hands-free uses ElevenLabs Agents (Custom mode)** with our backend as the **Custom LLM**. | ElevenLabs handles voice detection, end-of-turn detection, barge-in, echo cancellation and audio streaming. We only provide the answers. |
-| D3 | **PTT reads answers aloud by default.** A "Speak replies" toggle turns it off. | Decided in discussion. |
+| D3 | **PTT reads answers aloud by default — only for questions asked with the mic.** Typed questions stay silent (Listen button reads any answer). A "Speak replies to voice questions" toggle turns it off. | Decided in discussion; typed-only auto-play dropped 2026-10-29 (typing means the user is reading). |
 | D4 | **Multilingual by default.** Speech-to-text auto-detects the language; answers come back in the user's language; TTS default is a multilingual model. | Decided in discussion. |
 | D5 | **Turn eagerness is fixed** at `normal` (not user-selectable). | Decided in discussion; keeps one agent per TTS model. |
 | D6 | API keys stay on the server. The browser gets only a short-lived signed URL (hands-free) or talks to our backend (PTT). | Security. |
@@ -183,6 +183,9 @@ lets the user pick model, voice, language and the Groq LLM.
 - [x] Unit tests with fakes for `/voice/tts`, `/voice/options`, `/chat` model choice (18 new, 26 total, no credits).
 - [x] Manual test of both voice models (1–2 short sentences each).
 - [x] Commit M2 (one commit together with M1).
+- [x] Follow-up: auto-play only for questions asked with the mic (typed questions silent; D3 updated).
+- [ ] Browser test of the follow-up: typed question → silent; mic question → read aloud; Listen still works.
+- [ ] Commit the follow-up.
 
 ### M3 — Multilingual RAG
 

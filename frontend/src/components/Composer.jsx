@@ -16,6 +16,8 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
   const { recording, seconds, record, stop } = useRecorder();
   const ref = useRef(null);
   const micBusyRef = useRef(false);
+  // True once the mic added text to the box; only spoken questions get spoken answers
+  const spokenRef = useRef(false);
 
   // Grow the textarea with its content, up to MAX_HEIGHT
   useEffect(() => {
@@ -33,7 +35,8 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
   const submit = () => {
     const question = text.trim();
     if (!question || disabled || busy) return;
-    onSend(question);
+    onSend(question, { spoken: spokenRef.current });
+    spokenRef.current = false;
     setText("");
   };
 
@@ -76,6 +79,7 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
     try {
       const { text: spoken } = await transcribe(audio, language);
       if (spoken) {
+        spokenRef.current = true;
         setText((prev) => (prev.trim() ? `${prev.trimEnd()} ${spoken}` : spoken));
       } else {
         setMicError("Didn't catch any speech. Please try again.");
@@ -106,7 +110,11 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
           rows={1}
           value={text}
           placeholder={placeholder}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            // Clearing the box drops the transcript, so the next question counts as typed
+            if (!e.target.value.trim()) spokenRef.current = false;
+            setText(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
