@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from backend.config import get_settings
 from backend.ingest import ingest
 from backend.rag import RAGChain
+from backend.voice.custom_llm import router as custom_llm_router
 from backend.voice.routes import router as voice_router
 
 
@@ -43,6 +44,8 @@ state: dict = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     state["rag"] = RAGChain()
+    # Routers outside this module (the Custom LLM endpoint) reach it via request.app.state
+    app.state.rag = state["rag"]
     yield
     state.clear()
 
@@ -93,6 +96,7 @@ async def ingest_docs():
 
 
 app.include_router(voice_router)
+app.include_router(custom_llm_router)
 
 # Serve the built React app (frontend/dist) when present. Mounted last so the
 # API routes above take precedence over static files.

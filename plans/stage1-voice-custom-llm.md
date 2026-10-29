@@ -1,6 +1,6 @@
 # Stage 1 — Voice with ElevenLabs Agents + our RAG (Custom LLM)
 
-Status: **In progress (M1–M2 done; next M3)** · Branch: `voicefeature` · Later: [Stage 2](stage2-voice-realtime.md) (parked)
+Status: **In progress (M1–M2 done; M3 awaiting browser test; next S4 → M4)** · Branches: `voicefeature` (M1–M2), `voicefeature-m3-multilingual` (M3, PRs target `voicefeature`) · Later: [Stage 2](stage2-voice-realtime.md) (parked)
 
 ## Goal
 
@@ -121,11 +121,11 @@ Legend: `[x]` done · `[ ]` to do · ⏳ in progress
 
 | # | Milestone | Status |
 |---|---|---|
-| S | Spikes (S1–S4) | ⏳ S1 partly answered |
+| S | Spikes (S1–S4) | ⏳ S1 partly answered; S4 ✅ done (2026-10-29) |
 | M1 | PTT transcription | ✅ Done (2026-10-29) |
 | M2 | PTT spoken replies + Voice settings | ✅ Done (2026-10-29) |
-| M3 | Multilingual RAG | ⏳ Next |
-| M4 | Streaming RAG + Custom LLM endpoint | Not started |
+| M3 | Multilingual RAG | ⏳ Prompts committed; browser test pending |
+| M4 | Streaming RAG + Custom LLM endpoint | ⏳ Code + unit tests done; next: curl test through ngrok |
 | M5 | Hands-free end to end | Not started |
 | M6 | Sources + model choice in hands-free | Not started |
 | M7 | Hardening | Not started |
@@ -140,7 +140,12 @@ Run each spike just before the milestone that needs it (S1–S3 before M5, S4 be
   - [ ] Check whether the TTS model can be overridden per session (if yes: one agent instead of one per model).
 - [ ] **S2 — Languages in Agents.** How language detection / switching works mid-conversation; which setting lets the user speak any language without choosing first.
 - [ ] **S3 — Custom LLM request shape.** Does `customLlmExtraBody` reach our endpoint? What `messages` contains after a barge-in (full generated text or only what was heard)? How the request is cancelled on interruption.
-- [ ] **S4 — Tunnel.** ngrok installed, authtoken set, free static domain claimed, `PUBLIC_BASE_URL` in `.env`; a stub endpoint reachable from outside.
+- [x] **S4 — Tunnel.** ngrok installed, authtoken set, free static domain claimed, `PUBLIC_BASE_URL` in `.env`; a stub endpoint reachable from outside.
+  - [x] ngrok installed without sudo via `pyngrok` (in `requirements-dev.txt`); `.venv/bin/ngrok` → ngrok 3.39.13 in `~/.config/ngrok/` (2026-10-29).
+  - [x] Authtoken set (`.venv/bin/ngrok config add-authtoken …`, stored in `~/.config/ngrok/ngrok.yml`, 2026-10-29).
+  - [x] Free static domain claimed (`clean-backless-graceful.ngrok-free.dev`); `PUBLIC_BASE_URL` in `.env`.
+  - [x] `GET /health` reachable through the tunnel (existing endpoint is the stub): 200 `{"status":"ok"}` via the public URL (2026-10-29).
+  - Run the tunnel by hand only while testing: it makes the whole backend public.
 
 ### M1 — PTT transcription ✅
 
@@ -195,19 +200,19 @@ get answers in the user's language — prompt changes only, no re-ingestion.
 - [x] Router prompt: `search_query` always written in English (translate if needed).
 - [x] Answer prompt: reply in the language the user used; small-talk replies too.
 - [ ] Test with 2–3 Hindi and Telugu questions (text first, then voice): right sources retrieved, answer language correct, read aloud correctly. Includes the Hindi/Telugu transcription check moved from M1.
-- [ ] Commit M3.
+- [x] Commit M3 (prompt changes committed before the browser test, on `voicefeature-m3-multilingual`).
 
 ### M4 — Streaming RAG + Custom LLM endpoint
 
 Plan: build the endpoint ElevenLabs will call in hands-free mode. It speaks the OpenAI
 chat-completions format and streams tokens so the agent can start talking early.
 
-- [ ] Spike S4 done (ngrok + static domain).
-- [ ] Config: `CUSTOM_LLM_SECRET`, `PUBLIC_BASE_URL`.
-- [ ] `RAGChain.astream_answer(question, history, model)`: route → retrieve → stream Groq tokens; small talk as one chunk; returns sources.
-- [ ] `POST /v1/chat/completions`: bearer-secret check, `stream=true` only, maps `messages` to question + history, reads `session_id` / `llm_model` / prior history from the extra body, SSE `chat.completion.chunk` events ending in `[DONE]`, stops when the client disconnects.
-- [ ] Sources store per session (in memory, with TTL).
-- [ ] Unit tests: SSE format, auth rejection, message mapping.
+- [x] Spike S4 done (ngrok + static domain).
+- [x] Config: `CUSTOM_LLM_SECRET` (empty disables the endpoint; generated into `.env`), `PUBLIC_BASE_URL` (in `config.py` and `.env.example`).
+- [x] `RAGChain.stream_answer(question, history, model)` (sync, consumed with `iterate_in_threadpool`): route → retrieve run up front and return `(sources, token iterator)`; Groq is called only while the iterator is read; small talk as one chunk. Shared `_prepare()` keeps `/chat` unchanged.
+- [x] `POST /v1/chat/completions` (`backend/voice/custom_llm.py`): bearer-secret check (401; 503 when no secret), `stream=true` only, maps `messages` to question + history (system/tool messages dropped), reads `session_id` / `llm_model` / prior history from `elevenlabs_extra_body` (field name to confirm in S3), SSE `chat.completion.chunk` events ending in `[DONE]`, stops when the client disconnects (Starlette cancels the stream). The chain is reached via `app.state.rag`.
+- [x] Sources store per session (in memory, 30 min TTL; `latest_sources()` for M6's `GET /voice/sources`).
+- [x] Unit tests: SSE format, auth rejection, message mapping, bad requests (`tests/test_custom_llm.py`, 8 new, 34 total, no credits).
 - [ ] curl test through the ngrok URL.
 - [ ] Commit M4.
 
@@ -245,6 +250,7 @@ Plan: make it safe and pleasant to use and document it.
 - [ ] Browser matrix: Chrome, Firefox, Safari, phone over LAN.
 - [ ] README: ElevenLabs key permissions, ngrok setup, `setup_agents`, voice settings.
 - [ ] Rotate the ElevenLabs API key (the current one was shared in chat).
+- [ ] Reset the ngrok authtoken (the current one was shared in chat), then re-run `ngrok config add-authtoken`.
 - [ ] Commit M7 — Stage 1 done.
 
 ### Files touched

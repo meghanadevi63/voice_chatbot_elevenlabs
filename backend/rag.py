@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 from typing import Literal
 
 from langchain_core.documents import Document
@@ -130,23 +131,21 @@ class RAGChain:
             logger.exception("Intent router failed; falling back to retrieval")
             return Route(intent="document_query", search_query=question)
 
-    def answer(self, question: str, history: list[dict], model: str | None = None) -> dict:
-        chain = self.chains[model or get_settings().groq_model]
+    def _prepare(self, question: str, history: list[dict]) -> tuple[str | None, dict, list[dict]]:
+        """Route, then retrieve. Returns (small-talk reply or None, answer-chain inputs, sources)."""
         messages = to_messages(history)
         route = self.route(question, messages)
         logger.info("Routed %r -> %s", question, route.intent)
 
         if route.intent == "small_talk" and route.reply.strip():
-            return {"answer": route.reply.strip(), "sources": []}
+            return route.reply.strip(), {}, []
 
         docs = self.retriever.invoke(route.search_query.strip() or question)
-        answer = chain.invoke(
-            {
-                "context": format_docs(docs),
-                "history": messages,
-                "question": question,
-            }
-        )
+        inputs = {
+            "context": format_docs(docs),
+            "history": messages,
+            "question": question,
+        }
         sources = [
             {
                 "source": d.metadata.get("source"),
@@ -155,4 +154,25 @@ class RAGChain:
             }
             for d in docs
         ]
-        return {"answer": answer, "sources": sources}
+        return None, inputs, sources
+
+    def answer(self, question: str, history: list[dict], model: str | None = None) -> dict:
+        chain = self.chains[model or get_settings().groq_model]
+        reply, inputs, sources = self._prepare(question, history)
+        if reply is not None:
+            return {"answer": reply, "sources": []}
+        return {"answer": chain.invoke(inputs), "sources": sources}
+
+    def stream_answer(
+        self, question: str, history: list[dict], model: str | None = None
+    ) -> tuple[list[dict], Iterator[str]]:
+        """Like answer(), for the Custom LLM endpoint: returns (sources, token iterator).
+
+        Routing and retrieval run here (blocking); Groq is only called while the iterator is
+        consumed. Small talk comes back as a single chunk.
+        """
+        chain = self.chains[model or get_settings().groq_model]
+        reply, inputs, sources = self._prepare(question, history)
+        if reply is not None:
+            return [], iter([reply])
+        return sources, chain.stream(inputs)

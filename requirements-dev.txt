@@ -1,2 +1,4 @@
 -r requirements.txt
 pytest==9.2.0
+# ngrok tunnel for hands-free dev (no sudo): .venv/bin/ngrok http --url=$PUBLIC_BASE_URL 8002
+pyngrok==9.1.0

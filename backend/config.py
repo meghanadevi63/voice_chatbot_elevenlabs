@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     # Dev-only cache of generated audio so replays cost no credits; empty disables it
     tts_cache_dir: str = "./data/tts_cache"
 
+    # Hands-free: ElevenLabs calls {public_base_url}/v1/chat/completions with this bearer
+    # secret. Empty secret disables the endpoint.
+    custom_llm_secret: str = ""
+    # Public URL of this backend (ngrok dev domain during development), no trailing slash
+    public_base_url: str = ""
+
     # Comma-separated origins allowed to call the API directly from a browser.
     # Only needed when the frontend is served from a different origin.
     cors_origins: str = "https://localhost:5174,https://127.0.0.1:5174"
