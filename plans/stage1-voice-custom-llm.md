@@ -1,6 +1,6 @@
 # Stage 1 — Voice with ElevenLabs Agents + our RAG (Custom LLM)
 
-Status: **In progress (M1–M2 done; M3 awaiting browser test; next S4 → M4)** · Branches: `voicefeature` (M1–M2), `voicefeature-m3-multilingual` (M3, PRs target `voicefeature`) · Later: [Stage 2](stage2-voice-realtime.md) (parked)
+Status: **In progress (M1–M2, M4 done; M3 awaiting browser test; next S1–S3 → M5)** · Branches: `voicefeature` (M1–M2), `voicefeature-m3-multilingual` (M3, PRs target `voicefeature`), `voicefeature-m4-custom-llm` (M4, PRs target the M3 branch) · Later: [Stage 2](stage2-voice-realtime.md) (parked)
 
 ## Goal
 
@@ -125,7 +125,7 @@ Legend: `[x]` done · `[ ]` to do · ⏳ in progress
 | M1 | PTT transcription | ✅ Done (2026-10-29) |
 | M2 | PTT spoken replies + Voice settings | ✅ Done (2026-10-29) |
 | M3 | Multilingual RAG | ⏳ Prompts committed; browser test pending |
-| M4 | Streaming RAG + Custom LLM endpoint | ⏳ Code + unit tests done; next: curl test through ngrok |
+| M4 | Streaming RAG + Custom LLM endpoint | ✅ Done (2026-10-29) |
 | M5 | Hands-free end to end | Not started |
 | M6 | Sources + model choice in hands-free | Not started |
 | M7 | Hardening | Not started |
@@ -213,8 +213,8 @@ chat-completions format and streams tokens so the agent can start talking early.
 - [x] `POST /v1/chat/completions` (`backend/voice/custom_llm.py`): bearer-secret check (401; 503 when no secret), `stream=true` only, maps `messages` to question + history (system/tool messages dropped), reads `session_id` / `llm_model` / prior history from `elevenlabs_extra_body` (field name to confirm in S3), SSE `chat.completion.chunk` events ending in `[DONE]`, stops when the client disconnects (Starlette cancels the stream). The chain is reached via `app.state.rag`.
 - [x] Sources store per session (in memory, 30 min TTL; `latest_sources()` for M6's `GET /voice/sources`).
 - [x] Unit tests: SSE format, auth rejection, message mapping, bad requests (`tests/test_custom_llm.py`, 8 new, 34 total, no credits).
-- [ ] curl test through the ngrok URL.
-- [ ] Commit M4.
+- [x] curl test through the ngrok URL: streamed chunks ending in `[DONE]`; no token → 401 (2026-10-29).
+- [x] Commit M4 (`21214dd` on `voicefeature-m4-custom-llm`).
 
 ### M5 — Hands-free end to end
 
