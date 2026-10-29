@@ -124,7 +124,7 @@ Legend: `[x]` done · `[ ]` to do · ⏳ in progress
 | S | Spikes (S1–S4) | ⏳ S1 partly answered |
 | M1 | PTT transcription | ✅ Done (2026-10-29) |
 | M2 | PTT spoken replies + Voice settings | ✅ Done (2026-10-29) |
-| M3 | Multilingual RAG | Not started |
+| M3 | Multilingual RAG | ⏳ Next |
 | M4 | Streaming RAG + Custom LLM endpoint | Not started |
 | M5 | Hands-free end to end | Not started |
 | M6 | Sources + model choice in hands-free | Not started |
@@ -184,16 +184,16 @@ lets the user pick model, voice, language and the Groq LLM.
 - [x] Manual test of both voice models (1–2 short sentences each).
 - [x] Commit M2 (one commit together with M1).
 - [x] Follow-up: auto-play only for questions asked with the mic (typed questions silent; D3 updated).
-- [ ] Browser test of the follow-up: typed question → silent; mic question → read aloud; Listen still works.
-- [ ] Commit the follow-up.
+- [x] Browser test of the follow-up: typed question → silent; mic question → read aloud; Listen still works (2026-10-29).
+- [x] Commit the follow-up.
 
 ### M3 — Multilingual RAG
 
 Plan: make non-English questions retrieve the right passages from the English documents and
 get answers in the user's language — prompt changes only, no re-ingestion.
 
-- [ ] Router prompt: `search_query` always written in English (translate if needed).
-- [ ] Answer prompt: reply in the language the user used; small-talk replies too.
+- [x] Router prompt: `search_query` always written in English (translate if needed).
+- [x] Answer prompt: reply in the language the user used; small-talk replies too.
 - [ ] Test with 2–3 Hindi and Telugu questions (text first, then voice): right sources retrieved, answer language correct, read aloud correctly. Includes the Hindi/Telugu transcription check moved from M1.
 - [ ] Commit M3.
 
