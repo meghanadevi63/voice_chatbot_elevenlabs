@@ -197,6 +197,55 @@ code {
   color: var(--bad);
 }
 
+/* Voice settings */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.toggle input {
+  accent-color: var(--accent);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field select {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.field select:disabled {
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+}
+
+.field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .file-list {
   margin: 6px 0 0;
   padding-left: 18px;
@@ -357,6 +406,35 @@ code {
 
 .sources {
   margin-top: 8px;
+}
+
+.speak-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.speak-btn:hover,
+.speak-btn.active {
+  color: var(--accent);
+}
+
+.speak-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.play-error {
+  font-size: 13px;
+  color: var(--bad);
+  margin: 4px 0 0;
 }
 
 .sources-toggle {
@@ -532,6 +610,62 @@ code {
 
 .send-btn:hover:not(:disabled) {
   background: var(--accent-hover);
+}
+
+.mic-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.mic-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mic-btn.recording {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #ffffff;
+}
+
+.rec-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad);
+  animation: pulse 1s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.composer-error {
+  font-size: 13px;
+  color: var(--bad);
+  margin: 8px 4px 0;
 }
 
 .hint {

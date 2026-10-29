@@ -2,14 +2,17 @@
 // Set VITE_BACKEND_URL only if the API is hosted somewhere else.
 const BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
 
-async function request(path, options = {}) {
+// `parse` reads a successful response; JSON unless the endpoint returns e.g. audio
+async function request(path, options = {}, parse = (res) => res.json()) {
   let res;
   try {
     res = await fetch(`${BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      // FormData sets its own multipart Content-Type (with boundary)
+      headers: options.body instanceof FormData ? {} : { "Content-Type": "application/json" },
       ...options,
     });
-  } catch {
+  } catch (e) {
+    if (e.name === "AbortError") throw e;
     throw new Error("Can't reach the backend. Is it running?");
   }
 
@@ -23,12 +26,39 @@ async function request(path, options = {}) {
     }
     throw new Error(detail);
   }
-  return res.json();
+  return parse(res);
 }
 
 export const checkHealth = () => request("/health");
 
-export const sendChat = (question, history) =>
-  request("/chat", { method: "POST", body: JSON.stringify({ question, history }) });
+export const sendChat = (question, history, llmModel) =>
+  request("/chat", {
+    method: "POST",
+    body: JSON.stringify({ question, history, llm_model: llmModel || null }),
+  });
 
 export const ingestDocs = () => request("/ingest", { method: "POST" });
+
+// Safari records audio/mp4, Firefox audio/ogg, Chrome audio/webm
+function audioExtension(type) {
+  if (type.includes("mp4")) return "m4a";
+  if (type.includes("ogg")) return "ogg";
+  return "webm";
+}
+
+export const transcribe = (audio, language) => {
+  const form = new FormData();
+  form.append("file", audio, `speech.${audioExtension(audio.type)}`);
+  if (language) form.append("language", language);
+  return request("/voice/transcribe", { method: "POST", body: form });
+};
+
+export const getVoiceOptions = () => request("/voice/options");
+
+// Spoken answer as an MP3 Blob. Missing model/voice use the server defaults.
+export const speak = (text, model, voiceId, signal) =>
+  request(
+    "/voice/tts",
+    { method: "POST", body: JSON.stringify({ text, model: model || null, voice_id: voiceId || null }), signal },
+    (res) => res.blob()
+  );

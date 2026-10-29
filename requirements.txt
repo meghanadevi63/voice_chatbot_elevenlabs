@@ -25,3 +25,4 @@ uvicorn[standard]==0.54.0
 requests
 python-dotenv
 pydantic-settings==2.15.0
+python-multipart==0.0.32

@@ -102,8 +102,13 @@ class RAGChain:
                 ("human", "{question}"),
             ]
         )
-        llm = ChatGroq(model=settings.groq_model, api_key=settings.groq_api_key, temperature=0)
-        self.chain = prompt | llm | StrOutputParser()
+        # One answer chain per allow-listed model, so each request can pick its own
+        self.chains = {
+            model: prompt
+            | ChatGroq(model=model, api_key=settings.groq_api_key, temperature=0)
+            | StrOutputParser()
+            for model in settings.llm_model_labels()
+        }
 
     def refresh(self):
         """Rebuild the retriever after re-ingestion (collection was dropped and recreated)."""
@@ -119,7 +124,8 @@ class RAGChain:
             logger.exception("Intent router failed; falling back to retrieval")
             return Route(intent="document_query", search_query=question)
 
-    def answer(self, question: str, history: list[dict]) -> dict:
+    def answer(self, question: str, history: list[dict], model: str | None = None) -> dict:
+        chain = self.chains[model or get_settings().groq_model]
         messages = to_messages(history)
         route = self.route(question, messages)
         logger.info("Routed %r -> %s", question, route.intent)
@@ -128,7 +134,7 @@ class RAGChain:
             return {"answer": route.reply.strip(), "sources": []}
 
         docs = self.retriever.invoke(route.search_query.strip() or question)
-        answer = self.chain.invoke(
+        answer = chain.invoke(
             {
                 "context": format_docs(docs),
                 "history": messages,

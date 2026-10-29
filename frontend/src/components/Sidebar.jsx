@@ -1,3 +1,4 @@
+import VoiceSettings from "./VoiceSettings.jsx";
 import { CloseIcon, LogoMark, PlusIcon, RefreshIcon } from "./icons.jsx";
 
 const STATUS = {
@@ -31,7 +32,7 @@ function IngestResult({ ingest }) {
   return null;
 }
 
-export default function Sidebar({ open, onClose, backend, ingest, onIngest, onClear, canClear }) {
+export default function Sidebar({ open, onClose, backend, ingest, onIngest, onClear, canClear, voice }) {
   const status = STATUS[backend];
   const ingesting = ingest.status === "running";
 
@@ -70,6 +71,16 @@ export default function Sidebar({ open, onClose, backend, ingest, onIngest, onCl
             <RefreshIcon /> {ingesting ? "Indexing…" : "Re-ingest documents"}
           </button>
           <IngestResult ingest={ingest} />
+        </section>
+
+        <section className="sidebar-section">
+          <h2>Voice</h2>
+          <VoiceSettings
+            options={voice.options}
+            error={voice.error}
+            settings={voice.settings}
+            onChange={voice.update}
+          />
         </section>
       </aside>
     </>

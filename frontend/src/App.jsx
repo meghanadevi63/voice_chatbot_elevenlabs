@@ -5,6 +5,8 @@ import Composer from "./components/Composer.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import { MenuIcon } from "./components/icons.jsx";
+import usePlayer from "./usePlayer.js";
+import useVoiceSettings from "./useVoiceSettings.js";
 
 const STORAGE_KEY = "docs-assistant-messages";
 const HEALTH_INTERVAL_MS = 15000;
@@ -34,6 +36,15 @@ export default function App() {
   const [ingest, setIngest] = useState({ status: "idle" });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef(null);
+  const voice = useVoiceSettings(backend === "ok");
+  const player = usePlayer();
+  const { ttsModel, voiceId, llmModel, speakReplies } = voice.settings;
+  const { play, stop } = player;
+
+  const speakAnswer = useCallback(
+    (message) => play(message.id, message.content, { model: ttsModel, voiceId }),
+    [play, ttsModel, voiceId]
+  );
 
   useEffect(() => {
     try {
@@ -63,12 +74,16 @@ export default function App() {
 
   const ask = useCallback(
     async (question) => {
+      // A new question interrupts the answer being read aloud
+      stop();
       const history = toHistory(messages);
       setMessages((prev) => [...prev, { id: newId(), role: "user", content: question }]);
       setPending(true);
       try {
-        const { answer, sources } = await sendChat(question, history);
-        setMessages((prev) => [...prev, { id: newId(), role: "assistant", content: answer, sources }]);
+        const { answer, sources } = await sendChat(question, history, llmModel);
+        const reply = { id: newId(), role: "assistant", content: answer, sources };
+        setMessages((prev) => [...prev, reply]);
+        if (speakReplies) speakAnswer(reply);
       } catch (e) {
         setMessages((prev) => [
           ...prev,
@@ -78,7 +93,7 @@ export default function App() {
         setPending(false);
       }
     },
-    [messages]
+    [messages, stop, llmModel, speakReplies, speakAnswer]
   );
 
   const reingest = useCallback(async () => {
@@ -91,9 +106,10 @@ export default function App() {
   }, []);
 
   const clearChat = useCallback(() => {
+    stop();
     setMessages([]);
     setSidebarOpen(false);
-  }, []);
+  }, [stop]);
 
   return (
     <div className="app">
@@ -105,6 +121,7 @@ export default function App() {
         onIngest={reingest}
         onClear={clearChat}
         canClear={messages.length > 0 && !pending}
+        voice={voice}
       />
 
       <main className="main">
@@ -120,14 +137,23 @@ export default function App() {
             {messages.length === 0 ? (
               <EmptyState onPick={ask} disabled={pending} />
             ) : (
-              messages.map((m) => <ChatMessage key={m.id} message={m} />)
+              messages.map((m) => (
+                <ChatMessage
+                  key={m.id}
+                  message={m}
+                  playStatus={player.playing?.id === m.id ? player.playing.status : undefined}
+                  playError={player.errors[m.id]}
+                  onPlay={m.role === "assistant" ? () => speakAnswer(m) : undefined}
+                  onStop={stop}
+                />
+              ))
             )}
             {pending && <ChatMessage message={{ role: "assistant", typing: true }} />}
             <div ref={bottomRef} />
           </div>
         </div>
 
-        <Composer onSend={ask} disabled={pending} />
+        <Composer onSend={ask} disabled={pending} language={voice.settings.language} onRecordStart={stop} />
       </main>
     </div>
   );

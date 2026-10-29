@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from backend.config import get_settings
 from backend.ingest import ingest
 from backend.rag import RAGChain
+from backend.voice.routes import router as voice_router
 
 
 class ChatTurn(BaseModel):
@@ -21,6 +22,8 @@ class ChatTurn(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     history: list[ChatTurn] = []
+    # Answer model from Voice settings; must be in the allow-list
+    llm_model: str | None = None
 
 
 class Source(BaseModel):
@@ -66,9 +69,14 @@ def health():
 async def chat(req: ChatRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question is empty")
+    if req.llm_model and req.llm_model not in get_settings().llm_model_labels():
+        raise HTTPException(status_code=400, detail="Answer model is not allowed")
     try:
         return await run_in_threadpool(
-            state["rag"].answer, req.question, [t.model_dump() for t in req.history]
+            state["rag"].answer,
+            req.question,
+            [t.model_dump() for t in req.history],
+            req.llm_model,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -83,6 +91,8 @@ async def ingest_docs():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+app.include_router(voice_router)
 
 # Serve the built React app (frontend/dist) when present. Mounted last so the
 # API routes above take precedence over static files.

@@ -28,6 +28,26 @@ export const SendIcon = () => (
   </svg>
 );
 
+export const MicIcon = () => (
+  <svg {...base}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+  </svg>
+);
+
+export const StopIcon = () => (
+  <svg {...base}>
+    <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const SpeakerIcon = () => (
+  <svg {...base} width={14} height={14}>
+    <path d="M11 5 6 9H3v6h3l5 4z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+  </svg>
+);
+
 export const PlusIcon = () => (
   <svg {...base}>
     <path d="M12 5v14M5 12h14" />
