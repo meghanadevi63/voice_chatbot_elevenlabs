@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     custom_llm_secret: str = ""
     # Public URL of this backend (ngrok dev domain during development), no trailing slash
     public_base_url: str = ""
+    # Hands-free agent; printed by `python -m backend.voice.setup_agents`
+    elevenlabs_agent_id: str = ""
 
     # Comma-separated origins allowed to call the API directly from a browser.
     # Only needed when the frontend is served from a different origin.

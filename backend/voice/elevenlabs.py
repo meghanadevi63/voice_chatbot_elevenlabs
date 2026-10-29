@@ -112,6 +112,21 @@ def model_languages() -> dict[str, list[dict]]:
     }
 
 
+def signed_url(agent_id: str) -> str:
+    """Short-lived URL that lets the browser start one conversation with our private agent (free)."""
+    try:
+        res = requests.get(
+            f"{API_BASE}/convai/conversation/get-signed-url",
+            headers=_headers(),
+            params={"agent_id": agent_id},
+            timeout=TIMEOUT_S,
+        )
+    except requests.RequestException as e:
+        raise ElevenLabsError(502, f"Can't reach ElevenLabs: {e}") from e
+    _raise_for_status(res)
+    return res.json()["signed_url"]
+
+
 def synthesize(text: str, model: str, voice_id: str) -> bytes:
     """Text to speech. Returns the whole MP3 (answers are short, and the cache needs it whole)."""
     try:

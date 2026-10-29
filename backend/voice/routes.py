@@ -1,4 +1,5 @@
 import re
+import uuid
 
 from fastapi import APIRouter, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -55,6 +56,23 @@ async def options():
             "speak_replies": True,
         },
     }
+
+
+@router.get("/session")
+async def session():
+    """Start a hands-free conversation: a signed URL for the agent (the API key stays here, D6).
+
+    `session_id` goes back to the Custom LLM endpoint in the extra body, so the browser can
+    fetch the sources of each spoken answer.
+    """
+    agent_id = get_settings().elevenlabs_agent_id
+    if not agent_id:
+        raise HTTPException(status_code=503, detail="Hands-free is not configured")
+    try:
+        url = await run_in_threadpool(elevenlabs.signed_url, agent_id)
+    except ElevenLabsError as e:
+        raise HTTPException(status_code=e.status, detail=e.detail)
+    return {"signed_url": url, "session_id": uuid.uuid4().hex}
 
 
 @router.post("/transcribe", response_model=Transcript)

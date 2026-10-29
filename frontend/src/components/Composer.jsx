@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { transcribe } from "../api.js";
 import useRecorder, { micErrorMessage } from "../useRecorder.js";
-import { MicIcon, SendIcon, StopIcon } from "./icons.jsx";
+import { MicIcon, SendIcon, StopIcon, WaveIcon } from "./icons.jsx";
 
 const MAX_HEIGHT = 200;
 // Shorter clips are almost always accidental clicks; skip them to save STT credits
 const MIN_RECORDING_MS = 700;
 
+const HANDS_FREE_LABELS = {
+  connecting: "Connecting…",
+  listening: "Listening…",
+  thinking: "Thinking…",
+  speaking: "Speaking…",
+};
+
 const formatTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-export default function Composer({ onSend, disabled, language, onRecordStart }) {
+export default function Composer({ onSend, disabled, language, onRecordStart, handsFree, onHandsFreeStart }) {
   const [text, setText] = useState("");
   const [transcribing, setTranscribing] = useState(false);
   const [micError, setMicError] = useState(null);
@@ -30,7 +37,7 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
     if (!disabled) ref.current?.focus();
   }, [disabled]);
 
-  const busy = recording || transcribing;
+  const busy = recording || transcribing || handsFree.active;
 
   const submit = () => {
     const question = text.trim();
@@ -93,8 +100,11 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
   };
 
   let placeholder = "Ask a question about your documents";
-  if (recording) placeholder = "Listening… click stop when you're done";
+  if (handsFree.active) placeholder = "Hands-free: just talk. Click stop to end.";
+  else if (recording) placeholder = "Listening… click stop when you're done";
   else if (transcribing) placeholder = "Transcribing…";
+
+  const handsFreeMessage = handsFree.error || handsFree.notice;
 
   return (
     <div className="composer-wrap">
@@ -110,6 +120,7 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
           rows={1}
           value={text}
           placeholder={placeholder}
+          disabled={handsFree.active}
           onChange={(e) => {
             // Clearing the box drops the transcript, so the next question counts as typed
             if (!e.target.value.trim()) spokenRef.current = false;
@@ -129,16 +140,36 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
           </span>
         )}
         {transcribing && <span className="rec-status">Transcribing…</span>}
-        <button
-          className={`mic-btn${recording ? " recording" : ""}`}
-          type="button"
-          onClick={toggleMic}
-          disabled={transcribing}
-          aria-label={recording ? "Stop recording" : "Speak your question"}
-          title={recording ? "Stop recording" : "Speak your question"}
-        >
-          {recording ? <StopIcon /> : <MicIcon />}
-        </button>
+        {handsFree.active && (
+          <span className={`rec-status hf-${handsFree.status}`} aria-live="polite">
+            <span className="rec-dot" />
+            {HANDS_FREE_LABELS[handsFree.status]}
+          </span>
+        )}
+        {!handsFree.active && (
+          <button
+            className={`mic-btn${recording ? " recording" : ""}`}
+            type="button"
+            onClick={toggleMic}
+            disabled={transcribing}
+            aria-label={recording ? "Stop recording" : "Speak your question"}
+            title={recording ? "Stop recording" : "Speak your question"}
+          >
+            {recording ? <StopIcon /> : <MicIcon />}
+          </button>
+        )}
+        {!recording && !transcribing && (
+          <button
+            className={`mic-btn${handsFree.active ? " hands-free" : ""}`}
+            type="button"
+            onClick={handsFree.active ? handsFree.end : onHandsFreeStart}
+            disabled={disabled || handsFree.status === "connecting"}
+            aria-label={handsFree.active ? "End hands-free conversation" : "Start hands-free conversation"}
+            title={handsFree.active ? "End hands-free conversation" : "Hands-free: talk without clicking"}
+          >
+            {handsFree.active ? <StopIcon /> : <WaveIcon />}
+          </button>
+        )}
         <button className="send-btn" type="submit" disabled={disabled || busy || !text.trim()} aria-label="Send">
           <SendIcon />
         </button>
@@ -148,9 +179,14 @@ export default function Composer({ onSend, disabled, language, onRecordStart }) 
           {micError}
         </p>
       )}
+      {handsFreeMessage && (
+        <p className={handsFree.error ? "composer-error" : "composer-note"} role={handsFree.error ? "alert" : "status"}>
+          {handsFreeMessage}
+        </p>
+      )}
       <p className="hint">
-        Answers come only from your indexed documents. Enter to send, Shift+Enter for a new line, or click the mic to
-        speak.
+        Answers come only from your indexed documents. Enter to send, Shift+Enter for a new line, click the mic to
+        speak, or the wave button to talk hands-free.
       </p>
     </div>
   );

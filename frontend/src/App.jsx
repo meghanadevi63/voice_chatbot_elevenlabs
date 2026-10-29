@@ -5,6 +5,7 @@ import Composer from "./components/Composer.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import { MenuIcon } from "./components/icons.jsx";
+import useHandsFree from "./useHandsFree.js";
 import usePlayer from "./usePlayer.js";
 import useVoiceSettings from "./useVoiceSettings.js";
 
@@ -38,8 +39,23 @@ export default function App() {
   const bottomRef = useRef(null);
   const voice = useVoiceSettings(backend === "ok");
   const player = usePlayer();
-  const { ttsModel, voiceId, llmModel, speakReplies } = voice.settings;
+  const handsFree = useHandsFree({
+    onMessage: ({ turnId, role, content }) =>
+      setMessages((prev) => [...prev, { id: newId(), role, content, turnId }]),
+    // Keep only what was spoken, so the chat matches what the agent remembers
+    onCorrection: ({ turnId, content }) =>
+      setMessages((prev) =>
+        prev.map((m) => (m.turnId === turnId ? { ...m, content, interrupted: true } : m))
+      ),
+  });
+  const { ttsModel, voiceId, language, llmModel, speakReplies } = voice.settings;
   const { play, stop } = player;
+
+  const startHandsFree = useCallback(() => {
+    // The agent speaks now; stop any answer being read aloud
+    stop();
+    handsFree.start({ history: toHistory(messages), voiceId, language, llmModel });
+  }, [stop, handsFree, messages, voiceId, language, llmModel]);
 
   const speakAnswer = useCallback(
     (message) => play(message.id, message.content, { model: ttsModel, voiceId }),
@@ -70,7 +86,7 @@ export default function App() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, pending]);
+  }, [messages, pending, handsFree.status]);
 
   const ask = useCallback(
     async (question, { spoken = false } = {}) => {
@@ -149,12 +165,21 @@ export default function App() {
                 />
               ))
             )}
-            {pending && <ChatMessage message={{ role: "assistant", typing: true }} />}
+            {(pending || handsFree.status === "thinking") && (
+              <ChatMessage message={{ role: "assistant", typing: true }} />
+            )}
             <div ref={bottomRef} />
           </div>
         </div>
 
-        <Composer onSend={ask} disabled={pending} language={voice.settings.language} onRecordStart={stop} />
+        <Composer
+          onSend={ask}
+          disabled={pending}
+          language={language}
+          onRecordStart={stop}
+          handsFree={handsFree}
+          onHandsFreeStart={startHandsFree}
+        />
       </main>
     </div>
   );

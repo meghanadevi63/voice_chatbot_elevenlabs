@@ -246,6 +246,11 @@ code {
   border-color: var(--accent);
 }
 
+.field-note {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .file-list {
   margin: 6px 0 0;
   padding-left: 18px;
@@ -434,6 +439,14 @@ code {
 .play-error {
   font-size: 13px;
   color: var(--bad);
+  margin: 4px 0 0;
+}
+
+/* Hands-free reply cut off by the user; the text is the part that was spoken */
+.interrupted-note {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text-muted);
   margin: 4px 0 0;
 }
 
@@ -637,6 +650,12 @@ code {
   color: #ffffff;
 }
 
+.mic-btn.hands-free {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .rec-status {
   display: inline-flex;
   align-items: center;
@@ -660,6 +679,27 @@ code {
   50% {
     opacity: 0.3;
   }
+}
+
+/* Hands-free status dot: green while listening, accent while the agent thinks or speaks */
+.hf-listening .rec-dot {
+  background: var(--ok);
+}
+
+.hf-connecting .rec-dot,
+.hf-thinking .rec-dot,
+.hf-speaking .rec-dot {
+  background: var(--accent);
+}
+
+.hf-speaking .rec-dot {
+  animation-duration: 0.5s;
+}
+
+.composer-note {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 8px 4px 0;
 }
 
 .composer-error {

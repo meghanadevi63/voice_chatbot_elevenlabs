@@ -40,6 +40,10 @@ export default function VoiceSettings({ options, error, settings, onChange }) {
             </option>
           ))}
         </select>
+        {/* Until the ElevenLabs SDK can override the model per session (plan M5) */}
+        <small className="field-note">
+          Hands-free always uses {options.defaults.tts_model} for now. This choice applies to push-to-talk and Listen.
+        </small>
       </label>
 
       <label className="field">

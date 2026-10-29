@@ -35,6 +35,12 @@ export const MicIcon = () => (
   </svg>
 );
 
+export const WaveIcon = () => (
+  <svg {...base}>
+    <path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4" />
+  </svg>
+);
+
 export const StopIcon = () => (
   <svg {...base}>
     <rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none" />

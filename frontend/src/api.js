@@ -55,6 +55,9 @@ export const transcribe = (audio, language) => {
 
 export const getVoiceOptions = () => request("/voice/options");
 
+// { signed_url, session_id } for one hands-free conversation with the agent
+export const getHandsFreeSession = () => request("/voice/session");
+
 // Spoken answer as an MP3 Blob. Missing model/voice use the server defaults.
 export const speak = (text, model, voiceId, signal) =>
   request(

@@ -1,6 +1,6 @@
 # Stage 1 — Voice with ElevenLabs Agents + our RAG (Custom LLM)
 
-Status: **In progress (M1–M2, M4 done; M3 awaiting browser test; next S1–S3 → M5)** · Branches: `voicefeature` (M1–M2), `voicefeature-m3-multilingual` (M3, PRs target `voicefeature`), `voicefeature-m4-custom-llm` (M4, PRs target the M3 branch) · Later: [Stage 2](stage2-voice-realtime.md) (parked)
+Status: **In progress (M1–M2, M4 done; M3 awaiting browser test; M5 coded, manual test next)** · Branches: `voicefeature` (M1–M2), `voicefeature-m3-multilingual` (M3, PRs target `voicefeature`), `voicefeature-m4-custom-llm` (M4, PRs target the M3 branch) · Later: [Stage 2](stage2-voice-realtime.md) (parked)
 
 ## Goal
 
@@ -103,15 +103,15 @@ Saved in `localStorage`, validated by the backend.
 |---|---|---|---|
 | Language | Auto-detect (default) or a specific language | ✅ | ✅ |
 | Answer LLM (Groq) | allow-list from config, default `openai/gpt-oss-20b` | ✅ | ✅ |
-| TTS model | table above | ✅ | ✅ (one agent per model) |
+| TTS model | table above | ✅ | ✅ (session override) |
 | Voice | multilingual voices from ElevenLabs | ✅ | ✅ |
 | Speak replies | on (default) / off | ✅ | always on |
 
 Not selectable: speech-to-text model (Scribe v2 is the only current option), turn eagerness (D5).
 
-**Why one agent per TTS model:** per-session overrides are documented for voice, language and
-prompt but not clearly for the TTS *model*, and changing the shared agent would affect every
-user. If spike S1 shows the model can be overridden per session, we use a single agent.
+**One agent for all TTS models:** spike S1 showed the TTS *model* can be overridden per session
+(like voice and language), so a single agent serves both models; the browser passes the chosen
+model as a session override. (Earlier plan: one agent per model, in case it couldn't.)
 
 ## Work plan
 
@@ -121,12 +121,12 @@ Legend: `[x]` done · `[ ]` to do · ⏳ in progress
 
 | # | Milestone | Status |
 |---|---|---|
-| S | Spikes (S1–S4) | ⏳ S1 partly answered; S4 ✅ done (2026-10-29) |
+| S | Spikes (S1–S4) | ⏳ S1, S2, S4 ✅; S3: only the slow-answer failure left (parked) |
 | M1 | PTT transcription | ✅ Done (2026-10-29) |
 | M2 | PTT spoken replies + Voice settings | ✅ Done (2026-10-29) |
 | M3 | Multilingual RAG | ⏳ Prompts committed; browser test pending |
 | M4 | Streaming RAG + Custom LLM endpoint | ✅ Done (2026-10-29) |
-| M5 | Hands-free end to end | Not started |
+| M5 | Hands-free end to end | ⏳ Agent, `/voice/session`, hands-free button, chat messages coded; first session worked; next: M5 manual test, commit |
 | M6 | Sources + model choice in hands-free | Not started |
 | M7 | Hardening | Not started |
 
@@ -134,12 +134,24 @@ Legend: `[x]` done · `[ ]` to do · ⏳ in progress
 
 Run each spike just before the milestone that needs it (S1–S3 before M5, S4 before M4).
 
-- [ ] **S1 — TTS models in Agents.**
+- [x] **S1 — TTS models in Agents.** (2026-10-29, no credits: OpenAPI schema + a temporary agent, created and deleted)
   - [x] Free key can use `eleven_v4_turbo` and `eleven_v3_conversational` via the TTS API (`GET /v1/models`, 2026-10-29; both 0.5 credit/char).
-  - [ ] Check that both can be selected as an Agent's TTS model.
-  - [ ] Check whether the TTS model can be overridden per session (if yes: one agent instead of one per model).
-- [ ] **S2 — Languages in Agents.** How language detection / switching works mid-conversation; which setting lets the user speak any language without choosing first.
-- [ ] **S3 — Custom LLM request shape.** Does `customLlmExtraBody` reach our endpoint? What `messages` contains after a barge-in (full generated text or only what was heard)? How the request is cancelled on interruption.
+  - [x] Both can be selected as an Agent's TTS model: both in `TTSConversationalModel`; a test agent was created with `eleven_v4_turbo` and switched to `eleven_v3_conversational`.
+  - [x] TTS model can be overridden per session: `tts.model_id` is client-overridable once `platform_settings.overrides.conversation_config_override.tts.model_id = true` (accepted by the API). **→ One agent, not one per model.** First live session (S2/S3) confirms the override takes effect.
+  - Also found: Custom LLM `api_key` must be a workspace-secret reference (`ConvAISecretLocator`), so `setup_agents` stores `CUSTOM_LLM_SECRET` as an ElevenLabs workspace secret first. Extra body is enabled with `platform_settings.overrides.custom_llm_extra_body = true` and sent by the client as `custom_llm_extra_body`.
+- [x] **S2 — Languages in Agents.** How language detection / switching works mid-conversation; which setting lets the user speak any language without choosing first.
+  - [x] Live test (2026-10-29, 703 credits): with agent language `en` and **no extra setting**, Scribe Realtime auto-detects per turn: Telugu and Hindi arrived in their own scripts, switching en → te → en → hi mid-session worked, and our RAG answered in the same language; `eleven_v4_turbo` spoke them. No language picker needed for hands-free; the Voice-settings language can still be passed as an override.
+  - Very short Hindi phrases sometimes arrive romanized ("Aapke paas kya document"); the router/answer handle it.
+- [ ] **S3 — Custom LLM request shape.** Does `customLlmExtraBody` reach our endpoint, and under which field name (endpoint assumes `elevenlabs_extra_body`)? What `messages` contains after a barge-in (full generated text or only what was heard)? How the request is cancelled on interruption.
+  - [x] Live test via dashboard "Test AI agent" (2026-10-29, 2 sessions, 152 s, **845 credits ≈ 330 credits/min**); requests read in the ngrok inspector. All 15 calls 200, answers from the documents, declined an out-of-document question.
+  - [x] Request: `messages` (ElevenLabs' own system prompt first, then the full conversation), `model: "custom-llm"`, `temperature: 0`, `max_tokens: 8192`, `stream: true`, `stream_options.include_usage`; `Authorization: Bearer <workspace secret>`; path `/v1/chat/completions`. Extra fields are ignored by our endpoint.
+  - [x] After a barge-in, `messages` holds **only what was heard**, cut off and ending in `...`. A reply interrupted before it was spoken is dropped; the user's continued speech is merged into one user turn and the request is re-sent.
+  - [x] **Silence re-engagement:** after `turn_timeout` (default 7 s) of silence ElevenLabs calls us with the user message `"..."`; our RAG answers it (Groq + TTS credits, repeats itself). Fixed in `setup_agents` (`turn_timeout` = 20 s, see M5).
+  - [ ] ⚠️ **Slow answers end the session** (S2 session, 15:25): for one question ElevenLabs hung up on our request after ~3.5 s with no content yet, re-sent it (several in parallel), and after repeated failures ended the call with `custom_llm generation failed`. Our endpoint sends nothing until router (Groq) + retrieval finish, and aborted requests keep running in the thread pool (more Groq load). Root cause to confirm from the backend log (Groq 429?).
+  - Echo: with laptop speakers the agent's own reply was once transcribed as the user's turn ("I couldn't find that in the documents."); use headphones for tests; our frontend keeps echo cancellation on.
+    Also seen from our own frontend (15:52): a 4.0 s small-talk reply was re-sent by ElevenLabs after ~4 s (duplicate request, both 200).
+  - [x] Extra body field name: arrives as **`elevenlabs_extra_body`** with our `{session_id, llm_model, history}` (ngrok inspector, first session from our frontend, 2026-10-29). Endpoint unchanged.
+  - [x] ElevenLabs closes the HTTP stream when it gives up: the 15:25 requests were cut at ~3.5 s with no `[DONE]`. For barge-in it rarely matters: our answers finish streaming in ~0.5–2 s, before the user can interrupt the spoken reply.
 - [x] **S4 — Tunnel.** ngrok installed, authtoken set, free static domain claimed, `PUBLIC_BASE_URL` in `.env`; a stub endpoint reachable from outside.
   - [x] ngrok installed without sudo via `pyngrok` (in `requirements-dev.txt`); `.venv/bin/ngrok` → ngrok 3.39.13 in `~/.config/ngrok/` (2026-10-29).
   - [x] Authtoken set (`.venv/bin/ngrok config add-authtoken …`, stored in `~/.config/ngrok/ngrok.yml`, 2026-10-29).
@@ -222,10 +234,16 @@ Plan: create the ElevenLabs agent from code and connect the browser to it, so th
 talk continuously and hear answers from our RAG.
 
 - [ ] Spikes S1 (Agents part), S2 and S3 done.
-- [ ] `python -m backend.voice.setup_agents`: creates/updates private agents (Custom LLM → `{PUBLIC_BASE_URL}/v1`, Scribe v2 Realtime, interruptions on, turn eagerness `normal`, auto-end on long silence); saves agent ids.
-- [ ] `GET /voice/session`: signed URL for the right agent.
+- [x] `python -m backend.voice.setup_agents`: stores `CUSTOM_LLM_SECRET` as a workspace secret, then creates/updates one private agent (Custom LLM → `{PUBLIC_BASE_URL}/v1`, Scribe v2 Realtime, interruptions on, turn eagerness `normal`, auto-end after 20 s silence, max 5 min, no greeting, overrides allowed for TTS model / voice / language, custom LLM extra body on); agent id in `.env` as `ELEVENLABS_AGENT_ID`. Created `agent_5701m63fxktzevdam47efgfst83r` and read back (2026-10-29, no credits); re-run updates in place.
+- [x] No silence re-engagement (S3): `turn.turn_timeout` = `SILENCE_END_S` in `setup_agents`, so a silent user gets no `"..."` turn; the session just ends after 20 s. Applied and read back (2026-10-29); confirm in the S2 session.
+- [x] `GET /voice/session`: `{signed_url, session_id}` for the agent (503 when `ELEVENLABS_AGENT_ID` is empty); `elevenlabs.signed_url()` uses `get-signed-url` (free). 2 unit tests (36 total); real signed URL fetched (2026-10-29). Test fixture pins `elevenlabs_agent_id=""` because importing pymilvus loads `.env` into `os.environ`.
 - [ ] Frontend: `@elevenlabs/react`; hands-free toggle next to the mic; status listening / thinking / speaking; end button; textarea disabled while active.
+  - [x] Code (2026-10-29): `@elevenlabs/react` **1.18.0** pinned (client 1.28.0; newest release ≥ 2 weeks old); `ConversationProvider` in `main.jsx`; `useHandsFree.js` (mic check → `/voice/session` → `startSession` with signed URL over WebSocket, voice + language overrides, extra body `{session_id, llm_model, history}`); wave button in the Composer (stop while active), status dot + label, mic / Send / textarea disabled while active; error and "ended" notices. Frontend builds.
+  - SDK 1.28.0 can't override the **TTS model** (`modelId` arrives in client 1.32.0, too new): hands-free uses the agent's default `eleven_v4_turbo` for now. Upgrade once a release with `modelId` is ≥ 2 weeks old (~2026-11-09), then remove the note under "Voice model (TTS)" in `VoiceSettings.jsx` ("Hands-free always uses … for now").
+  - [ ] Browser test (credits). First session from our app (2026-10-29 15:52) connected and answered one turn with the extra body; status labels, stop button and the 20 s silence end still to confirm (folded into the M5 manual test).
 - [ ] User transcripts and agent replies appear as chat messages; interrupted replies marked.
+  - [x] Code (2026-10-29): `useHandsFree({ onMessage, onCorrection })` passes each finished turn (SDK `onMessage`, turn id = session id + `event_id`) to `App.jsx`, which appends it to the chat; `onAgentResponseCorrection` replaces the reply with the part that was spoken and marks it "Interrupted" (`ChatMessage.jsx`). Typing dots while hands-free is thinking. Hands-free turns are normal chat messages, so later typed questions get them as history. Frontend builds.
+  - [ ] Browser test (credits, in the M5 manual test).
 - [ ] Manual test: a few short sessions incl. barge-in and a follow-up question.
 - [ ] Commit M5.
 
@@ -236,7 +254,7 @@ continue the existing conversation.
 
 - [ ] `GET /voice/sources?session_id=…`; frontend attaches sources to each hands-free answer.
 - [ ] Session start passes `session_id`, selected LLM and the last 6 chat turns (extra body).
-- [ ] Voice and language passed as session overrides; TTS model selects the agent.
+- [ ] Voice, language and TTS model passed as session overrides.
 - [ ] Manual test: switch modes mid-conversation; out-of-document question is declined.
 - [ ] Commit M6.
 
@@ -247,9 +265,11 @@ Plan: make it safe and pleasant to use and document it.
 - [ ] Limits: TTS text length, upload size, request size on the Custom LLM endpoint.
 - [ ] Clear error messages for quota reached, key missing, tunnel down.
 - [ ] Latency + credit logging per turn; check target end of speech → first audio < ~1.5 s.
+- [ ] Bundle: load `@elevenlabs/react` only when hands-free starts (bundle went from small to 840 kB / 232 kB gzip with the SDK).
 - [ ] Browser matrix: Chrome, Firefox, Safari, phone over LAN.
 - [ ] README: ElevenLabs key permissions, ngrok setup, `setup_agents`, voice settings.
 - [ ] Rotate the ElevenLabs API key (the current one was shared in chat).
+- [ ] Rotate the Groq API key (it was visible in a screenshot).
 - [ ] Reset the ngrok authtoken (the current one was shared in chat), then re-run `ngrok config add-authtoken`.
 - [ ] Commit M7 — Stage 1 done.
 
@@ -297,7 +317,7 @@ non-commercial use with attribution (production needs a paid plan).
 |---|---|
 | One spoken answer (~300 chars), Flash v2.5 (0.5 credit/char) | ~150 credits |
 | One spoken answer, full-price model (~1 credit/char) | ~300 credits |
-| Hands-free | most expensive; free plan reportedly ~15 min/month (unverified) |
+| Hands-free | measured ≈ 330 credits/min (S3, 2026-10-29) → ~25 min/month on the free plan |
 
 Rules:
 - Unit tests use a **fake ElevenLabs client** — zero credits.

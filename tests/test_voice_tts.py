@@ -35,6 +35,8 @@ def settings(monkeypatch, tmp_path):
         default_voice_id=VOICE,
         max_tts_chars=60,
         tts_cache_dir=str(tmp_path / "tts"),
+        # Explicit: importing pymilvus (via backend.main in other tests) loads .env into os.environ
+        elevenlabs_agent_id="",
     )
     for module in (elevenlabs, routes, tts):
         monkeypatch.setattr(module, "get_settings", lambda: s)
@@ -51,10 +53,12 @@ def calls(monkeypatch):
     """Fake requests.get (voices) and requests.post (TTS); records every call."""
     recorded = Calls()
 
-    def fake_get(url, headers, timeout):
-        recorded.append({"method": "GET", "url": url})
+    def fake_get(url, headers, timeout, params=None):
+        recorded.append({"method": "GET", "url": url, "params": params})
         if url.endswith("/models"):
             return FakeResponse(body=MODELS)
+        if url.endswith("/get-signed-url"):
+            return FakeResponse(body={"signed_url": "wss://signed"})
         return FakeResponse(body={"voices": [{"voice_id": VOICE, "name": "A"}]})
 
     def fake_post(url, headers, params, json, timeout):
@@ -174,3 +178,17 @@ def test_options_lists_only_allowed_choices(settings, calls, client):
     # Listings are free, but still cached
     client.get("/voice/options")
     assert len(calls) == 2
+
+
+def test_session_returns_signed_url_for_the_agent(settings, calls, client):
+    settings.elevenlabs_agent_id = "agent-1"
+    res = client.get("/voice/session")
+    assert res.status_code == 200
+    assert res.json()["signed_url"] == "wss://signed"
+    assert res.json()["session_id"]
+    assert calls[-1]["params"] == {"agent_id": "agent-1"}
+
+
+def test_session_needs_an_agent(settings, calls, client):
+    assert client.get("/voice/session").status_code == 503
+    assert calls == []
